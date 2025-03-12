@@ -1,3 +1,4 @@
+#include "Player.h"
 #include <KamataEngine.h>
 
 using namespace KamataEngine;
@@ -43,6 +44,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 3Dモデル静的初期化
 	Model::StaticInitialize();
 
+	// テクスチャハンドル
+	uint32_t textureHandel_ = 0;
+	// テクスチャ読み込み
+	textureHandel_ = TextureManager::Load("uvChecker.png");
+	// 3Dモデル
+	Model* model_ = Model::Create();
+
+	// 自キャラの生成
+	Player* player_ = nullptr;
+	player_ = new Player();
+	player_->Initialize(model_,textureHandel_);
+
 	// 軸方向表示初期化
 	axisIndicator = AxisIndicator::GetInstance();
 	axisIndicator->Initialize();
@@ -58,6 +71,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			break;
 		}
 
+		player_->Update();
+
 		// ImGui受付開始
 		imguiManager->Begin();
 		// 入力関連の毎フレーム処理
@@ -66,6 +81,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		axisIndicator->Update();
 		// ImGui受付終了
 		imguiManager->End();
+
+		player_->Draw();
 
 		// 描画開始
 		dxCommon->PreDraw();
@@ -78,6 +95,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// 描画終了
 		dxCommon->PostDraw();
 	}
+
+	delete model_;
+	delete player_;
 
 	// 3Dモデル解放
 	Model::StaticFinalize();
