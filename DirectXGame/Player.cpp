@@ -1,6 +1,6 @@
 #include "Player.h"
 
-void Player::Initialize(Model* model, uint32_t textureHandle) {
+void Player::Initialize(Model* model, uint32_t textureHandle, Camera camera) {
 	// nullポインタチェック
 	assert(model);
 
@@ -9,8 +9,11 @@ void Player::Initialize(Model* model, uint32_t textureHandle) {
 	textureHandel_ = textureHandle;
 
 	// ワールド変換の初期化
-	worldTransform_.translation_ = Vector3(0.0f, 0.0f, -5.0f);
 	worldTransform_.Initialize();
+
+	// 引数の内容をメンバ変数に記録
+	camera_.translation_ = camera.translation_;
+	
 }
 
 void Player::Update() {
@@ -19,4 +22,8 @@ void Player::Update() {
 	worldTransform_.TransferMatrix();
 }
 
-void Player::Draw() {}
+void Player::Draw() {
+
+	// 3Dモデルを描画
+	model_->Draw(worldTransform_, camera_,textureHandel_);
+}

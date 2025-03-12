@@ -8,7 +8,7 @@ public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize(Model* model,uint32_t textureHandle,);
+	void Initialize(Model* model,uint32_t textureHandle,Camera* camera);
 
 	/// <summary>
 	/// 更新
@@ -23,6 +23,9 @@ public:
 private:
 	// ワールド変換データ
 	WorldTransform worldTransform_;
+	// ビュープロジェクション(カメラ?)
+	Camera camera_;
+
 	// モデル
 	Model* model_ = nullptr;
 

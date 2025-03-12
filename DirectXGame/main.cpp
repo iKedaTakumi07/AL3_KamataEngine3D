@@ -50,11 +50,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	textureHandel_ = TextureManager::Load("uvChecker.png");
 	// 3Dモデル
 	Model* model_ = Model::Create();
+	// カメラ?
+	Camera camera;
+	camera.translation_ = Vector3(0.0f, 0.0f, -5.0f);
+	camera.Initialize();
 
 	// 自キャラの生成
 	Player* player_ = nullptr;
 	player_ = new Player();
-	player_->Initialize(model_,textureHandel_);
+	player_->Initialize(model_, textureHandel_, &camera);
 
 	// 軸方向表示初期化
 	axisIndicator = AxisIndicator::GetInstance();
