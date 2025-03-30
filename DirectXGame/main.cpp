@@ -1,6 +1,29 @@
 #include <KamataEngine.h>
+#include <vector>
 
 using namespace KamataEngine;
+
+// アフィン変換行列を高速に生成する
+Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
+	Matrix4x4 num;
+	num.m[0][0] = scale.x * 1.0f * cosf(rotate.y) * cosf(rotate.x) * 1.0f;
+	num.m[0][1] = 0.0f;
+	num.m[0][2] = 0.0f;
+	num.m[0][3] = 0.0f;
+	num.m[1][0] = 0.0f;
+	num.m[1][1] = scale.y * cosf(rotate.x) * 1.0f * cosf(rotate.z) * 1.0f;
+	num.m[1][2] = 0.0f;
+	num.m[1][3] = 0.0f;
+	num.m[2][0] = 0.0f;
+	num.m[2][1] = 0.0f;
+	num.m[2][2] = scale.z * cosf(rotate.x) * cosf(rotate.y) * 1.0f * 1.0f;
+	num.m[2][3] = 0.0f;
+	num.m[3][0] = translate.x;
+	num.m[3][1] = translate.y;
+	num.m[3][2] = translate.z;
+	num.m[3][3] = 1.0f;
+	return num;
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -43,10 +66,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 3Dモデル静的初期化
 	Model::StaticInitialize();
 
+	// 3Dモデルデータ
+	Model* model_ = nullptr;
+
+	// 3Dモデルの生成
+	model_ = Model::Create();
+
+	std::vector<WorldTransform*> worldTransformBlocks_;
+
 	// カメラ
 	Camera camera;
-	camera.translation_ = Vector3(0.0f, 0.0f, -5.0f);
+	camera.translation_ = Vector3(0.0f, 0.0f, -50.0f);
 	camera.Initialize();
+
+	// 要素数
+	const uint32_t kNumBlockHorizontal = 20;
+	// ブロック1個分の横幅
+	const float kBlockWidth = 2.0f;
+	// 要素数を変更する
+	worldTransformBlocks_.resize(kNumBlockHorizontal);
+
+	// キューブ生成
+	for (uint32_t i = 0; i < kNumBlockHorizontal; ++i) {
+		worldTransformBlocks_[i] = new WorldTransform();
+		worldTransformBlocks_[i]->Initialize();
+		worldTransformBlocks_[i]->translation_.x = kBlockWidth * i;
+		worldTransformBlocks_[i]->translation_.y = 0.0f;
+	}
 
 	// 軸方向表示初期化
 	axisIndicator = AxisIndicator::GetInstance();
@@ -63,6 +109,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			break;
 		}
 
+		// ブロックの更新
+		for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
+
+			// アフィン変換
+			Matrix4x4 worldmatrix;
+
+			worldmatrix = MakeAffineMatrix(worldTransformBlock->scale_, worldTransformBlock->rotation_, worldTransformBlock->translation_);
+			worldTransformBlock->matWorld_ = worldmatrix;
+
+			// 定数バッファに転送する
+			worldTransformBlock->TransferMatrix();
+		}
+
 		// ImGui受付開始
 		imguiManager->Begin();
 		// 入力関連の毎フレーム処理
@@ -76,6 +135,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		dxCommon->PreDraw();
 		// 軸表示の描画
 		axisIndicator->Draw();
+
+		// ブロックの更新
+		for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
+			model_->PreDraw(dxCommon->GetCommandList());
+
+			model_->Draw(*worldTransformBlock, camera);
+
+			model_->PostDraw();
+		}
+
 		// プリミティブ描画のリセット
 		primitiveDrawer->Reset();
 		// ImGui描画
@@ -83,6 +152,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// 描画終了
 		dxCommon->PostDraw();
 	}
+
+	delete model_;
+
+	for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
+		delete worldTransformBlock;
+	}
+	worldTransformBlocks_.clear();
 
 	// 3Dモデル解放
 	Model::StaticFinalize();
