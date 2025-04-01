@@ -72,26 +72,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 3Dモデルの生成
 	model_ = Model::Create();
 
-	std::vector<WorldTransform*> worldTransformBlocks_;
+	std::vector<std::vector<WorldTransform*>> worldTransformBlocks_;
 
 	// カメラ
 	Camera camera;
 	camera.translation_ = Vector3(0.0f, 0.0f, -50.0f);
 	camera.Initialize();
 
+	bool isDebugCameraActive_ = false;
+	DebugCamera* debugCamera_ = nullptr;
+	debugCamera_ = new DebugCamera(1280, 720);
+
 	// 要素数
 	const uint32_t kNumBlockHorizontal = 20;
+	const uint32_t kNumBlockVirtical = 10;
 	// ブロック1個分の横幅
 	const float kBlockWidth = 2.0f;
+	const float kBlockHeight = 2.0f;
 	// 要素数を変更する
-	worldTransformBlocks_.resize(kNumBlockHorizontal);
+	worldTransformBlocks_.resize(kNumBlockVirtical);
+	for (uint32_t i = 0; i < kNumBlockVirtical; ++i) {
+		// 1列の要素数を設定
+		worldTransformBlocks_[i].resize(kNumBlockHorizontal);
+	}
 
 	// キューブ生成
-	for (uint32_t i = 0; i < kNumBlockHorizontal; ++i) {
-		worldTransformBlocks_[i] = new WorldTransform();
-		worldTransformBlocks_[i]->Initialize();
-		worldTransformBlocks_[i]->translation_.x = kBlockWidth * i;
-		worldTransformBlocks_[i]->translation_.y = 0.0f;
+	for (uint32_t i = 0; i < kNumBlockVirtical; ++i) {
+		for (uint32_t j = 0; j < kNumBlockHorizontal; ++j) {
+			worldTransformBlocks_[i][j] = new WorldTransform();
+			worldTransformBlocks_[i][j]->Initialize();
+			if (j > i) {
+				worldTransformBlocks_[i][j]->translation_.x = kBlockWidth * j;
+				worldTransformBlocks_[i][j]->translation_.y = kBlockHeight * i;
+			}
+		}
 	}
 
 	// 軸方向表示初期化
@@ -110,16 +124,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 
 		// ブロックの更新
-		for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				// アフィン変換
+				Matrix4x4 worldmatrix;
 
-			// アフィン変換
-			Matrix4x4 worldmatrix;
+				worldmatrix = MakeAffineMatrix(worldTransformBlock->scale_, worldTransformBlock->rotation_, worldTransformBlock->translation_);
+				worldTransformBlock->matWorld_ = worldmatrix;
 
-			worldmatrix = MakeAffineMatrix(worldTransformBlock->scale_, worldTransformBlock->rotation_, worldTransformBlock->translation_);
-			worldTransformBlock->matWorld_ = worldmatrix;
+				// 定数バッファに転送する
+				worldTransformBlock->TransferMatrix();
+			}
+		}
 
-			// 定数バッファに転送する
-			worldTransformBlock->TransferMatrix();
+#ifdef _DEBUG
+		if (Input::GetInstance()->PushKey(DIK_SPACE)) {
+			isDebugCameraActive_ = true;
+		}
+#endif
+
+		if (isDebugCameraActive_) {
+			debugCamera_->Update();
+
+			camera.matView = debugCamera_->GetCamera().matView;
+			camera.matProjection = debugCamera_->GetCamera().matProjection;
+
+			camera.TransferMatrix();
+		} else {
+			camera.UpdateMatrix();
 		}
 
 		// ImGui受付開始
@@ -137,12 +171,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		axisIndicator->Draw();
 
 		// ブロックの更新
-		for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
-			model_->PreDraw(dxCommon->GetCommandList());
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				model_->PreDraw(dxCommon->GetCommandList());
 
-			model_->Draw(*worldTransformBlock, camera);
+				model_->Draw(*worldTransformBlock, camera);
 
-			model_->PostDraw();
+				model_->PostDraw();
+			}
 		}
 
 		// プリミティブ描画のリセット
@@ -154,9 +192,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 
 	delete model_;
-
-	for (WorldTransform* worldTransformBlock : worldTransformBlocks_) {
-		delete worldTransformBlock;
+	delete debugCamera_;
+	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+			delete worldTransformBlock;
+		}
 	}
 	worldTransformBlocks_.clear();
 
